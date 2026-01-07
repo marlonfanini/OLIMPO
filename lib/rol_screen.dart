@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:olimpo/home_screen.dart';
 import 'package:olimpo/perfil_screen.dart';
 
 class RolScreen extends StatefulWidget {
@@ -115,7 +116,7 @@ class _RolScreenState extends State<RolScreen> {
                     : () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const PerfilScreen()),
+                    MaterialPageRoute(builder: (context) => const HomeScreen()),
                   );
                 },
                 style: ElevatedButton.styleFrom(

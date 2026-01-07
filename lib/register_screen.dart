@@ -1,7 +1,15 @@
+import 'dart:convert';
 import 'dart:ui';
+import 'package:flutter/gestures.dart'; // ✅ NUEVO
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:olimpo/home_screen.dart';
 import 'package:olimpo/login_screen.dart';
+import 'package:olimpo/privacy_policy.dart'; // ✅ NUEVO
+import 'package:olimpo/terms_condition_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CrearCuentaScreen extends StatefulWidget {
   const CrearCuentaScreen({super.key});
@@ -12,12 +20,155 @@ class CrearCuentaScreen extends StatefulWidget {
 
 class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   final TextEditingController _nombreController = TextEditingController();
-  final TextEditingController _documentoController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
+
+  static const String _baseUrl = "https://olimpo-production.up.railway.app";
+  static const String _registerEndpoint = "/api/Auth/Register";
+
+  bool _isValidEmail(String email) {
+    final value = email.trim();
+
+    final emailRegex = RegExp(
+      r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+      r"[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$",
+    );
+
+    return emailRegex.hasMatch(value);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.black87,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  String _mapBackendErrorToSpanish(String e) {
+    final err = e.toUpperCase().trim();
+
+    if (err == "EMAIL_EXISTS") return "Este correo ya está registrado.";
+
+    if (err.startsWith("WEAK_PASSWORD") || err.contains("WEAK_PASSWORD")) {
+      return "La contraseña debe tener al menos 6 caracteres.";
+    }
+
+    // Fallback
+    return e;
+  }
+
+  String _extractErrorMessage(dynamic decodedJson) {
+    if (decodedJson is Map<String, dynamic>) {
+      final errors = decodedJson["errors"];
+
+      if (errors is List && errors.isNotEmpty) {
+        final mapped = errors.map((e) => _mapBackendErrorToSpanish("$e")).toList();
+        return mapped.join("\n");
+      }
+
+      final msg = decodedJson["message"];
+      if (msg is String && msg.trim().isNotEmpty) return msg;
+    }
+
+    return "Ocurrió un error. Intenta de nuevo.";
+  }
+
+  Future<void> _handleRegister() async {
+    if (_isLoading) return;
+
+    final name = _nombreController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirm = _confirmPasswordController.text.trim();
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
+      _showMessage("Debe completar todos los campos");
+      return;
+    }
+
+    if (!_isValidEmail(email)) {
+      _showMessage("Correo inválido. Ej: example@gmail.com");
+      return;
+    }
+
+    if (password != confirm) {
+      _showMessage("Las contraseñas no coinciden");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final url = Uri.parse("$_baseUrl$_registerEndpoint");
+
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "id": 0,
+          "name": name,
+          "email": email,
+          "password": password,
+          "roleId": 1,
+          "estatusID": 1,
+        }),
+      );
+
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } catch (_) {
+        decoded = null;
+      }
+
+      // ✅ OK
+      if (response.statusCode == 200 &&
+          decoded is Map<String, dynamic> &&
+          decoded["success"] == true) {
+        final token = decoded["data"]["tokenID"];
+        final userId = decoded["data"]["userID"];
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString("token", token);
+        await prefs.setInt("userId", userId);
+        await prefs.setBool("isLogged", true);
+
+        _showMessage("Cuenta creada ✅");
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+        return;
+      }
+
+      // ❌ Error (400, etc)
+      final msg = _extractErrorMessage(decoded);
+      _showMessage(msg);
+    } catch (e) {
+      _showMessage("Error de conexión con el servidor");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,13 +176,9 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
       body: Stack(
         children: [
           SizedBox.expand(
-            child: Image.asset(
-              "assets/centro.png",
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset("assets/centro.png", fit: BoxFit.cover),
           ),
           Container(color: Colors.black.withOpacity(0.4)),
-
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 50),
@@ -39,7 +186,6 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 80),
-
                   Text(
                     "Crear Cuenta",
                     style: GoogleFonts.poppins(
@@ -49,7 +195,6 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                     ),
                   ),
                   const SizedBox(height: 30),
-
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
@@ -60,14 +205,14 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel("Nombre Completo"),
+                        _buildLabel("Nombre"),
                         const SizedBox(height: 8),
-                        _buildInputField(_nombreController, "Juan Perozo", TextInputType.name),
+                        _buildInputField(_nombreController, "Juan Pérez", TextInputType.name),
 
                         const SizedBox(height: 20),
-                        _buildLabel("Documento de Identidad"),
+                        _buildLabel("Correo electrónico"),
                         const SizedBox(height: 8),
-                        _buildInputField(_documentoController, "000000000", TextInputType.number),
+                        _buildInputField(_emailController, "correo@ejemplo.com", TextInputType.emailAddress),
 
                         const SizedBox(height: 20),
                         _buildLabel("Contraseña"),
@@ -75,9 +220,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                         _buildPasswordField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
-                          onToggle: () {
-                            setState(() => _obscurePassword = !_obscurePassword);
-                          },
+                          onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
 
                         const SizedBox(height: 20),
@@ -86,9 +229,8 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                         _buildPasswordField(
                           controller: _confirmPasswordController,
                           obscureText: _obscureConfirmPassword,
-                          onToggle: () {
-                            setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-                          },
+                          onToggle: () =>
+                              setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                         ),
                       ],
                     ),
@@ -96,6 +238,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
 
                   const SizedBox(height: 20),
 
+                  // ✅ CAMBIO: "Política de privacidad" ahora navega al screen
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Text.rich(
@@ -106,11 +249,27 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                           TextSpan(
                             text: "Términos de uso ",
                             style: GoogleFonts.poppins(color: Colors.redAccent),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const TermsConditionsScreen()),
+                                );
+                              },
                           ),
                           const TextSpan(text: "y la "),
                           TextSpan(
                             text: "Política de privacidad",
                             style: GoogleFonts.poppins(color: Colors.redAccent),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const PrivacyPolicyScreen(),
+                                  ),
+                                );
+                              },
                           ),
                         ],
                       ),
@@ -125,8 +284,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: GestureDetector(
-                        onTap: () {
-                        },
+                        onTap: _isLoading ? null : _handleRegister,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
                           decoration: BoxDecoration(
@@ -134,7 +292,16 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                             borderRadius: BorderRadius.circular(30),
                             border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
                           ),
-                          child: Text(
+                          child: _isLoading
+                              ? const SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                              : Text(
                             "Continuar",
                             style: GoogleFonts.poppins(
                               color: Colors.white,
@@ -149,31 +316,6 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
 
                   const SizedBox(height: 20),
 
-                  Text(
-                    "o regístrate con",
-                    style: GoogleFonts.poppins(color: Colors.white),
-                  ),
-                  const SizedBox(height: 15),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: Colors.white,
-                        radius: 24,
-                        child: Image.asset("assets/googleicon.png", width: 24),
-                      ),
-                      const SizedBox(width: 20),
-                      CircleAvatar(
-                        backgroundColor: Colors.white,
-                        radius: 24,
-                        child: Image.asset("assets/facebookicon.png", width: 24),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -184,16 +326,11 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                     child: RichText(
                       text: TextSpan(
                         text: "¿Ya tienes cuenta? ",
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
+                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 14),
                         children: [
                           TextSpan(
                             text: "Inicia sesión",
-                            style: GoogleFonts.poppins(
-                              color: Colors.redAccent,
-                            ),
+                            style: GoogleFonts.poppins(color: Colors.redAccent),
                           ),
                         ],
                       ),
@@ -258,10 +395,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
           borderSide: BorderSide.none,
         ),
         suffixIcon: IconButton(
-          icon: Icon(
-            obscureText ? Icons.visibility_off : Icons.visibility,
-            color: Colors.grey,
-          ),
+          icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
           onPressed: onToggle,
         ),
       ),

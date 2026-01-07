@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:olimpo/rol_screen.dart';
+import 'package:olimpo/login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GeneroScreen extends StatefulWidget {
   const GeneroScreen({super.key});
@@ -12,6 +13,11 @@ class GeneroScreen extends StatefulWidget {
 class _GeneroScreenState extends State<GeneroScreen> {
   String? selectedGender;
 
+  Future<void> _guardarGenero() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("gender", selectedGender!);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -20,14 +26,9 @@ class _GeneroScreenState extends State<GeneroScreen> {
         elevation: 0,
         leadingWidth: 120,
         leading: TextButton.icon(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: Color(0xFF00205B),
-            size: 15,
-          ),
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios,
+              color: Color(0xFF00205B), size: 15),
           label: Text(
             "Atras",
             style: GoogleFonts.poppins(
@@ -36,14 +37,12 @@ class _GeneroScreenState extends State<GeneroScreen> {
               fontSize: 16,
             ),
           ),
-          style: TextButton.styleFrom(padding: const EdgeInsets.only(left: 10)),
         ),
       ),
       backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
             Text(
@@ -57,70 +56,16 @@ class _GeneroScreenState extends State<GeneroScreen> {
             ),
             const SizedBox(height: 40),
 
-            GestureDetector(
-              onTap: () {
-                setState(() => selectedGender = "Masculino");
-              },
-              child: Column(
-                children: [
-                  Container(
-                    width: 190,
-                    height: 190,
-                    decoration: BoxDecoration(
-                      color: selectedGender == "Masculino"
-                          ? const Color(0xFF00205B)
-                          : Colors.white,
-                      border: Border.all(
-                        color: const Color(0xFF00205B),
-                        width: 3,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.male,
-                      size: 90,
-                      color: selectedGender == "Masculino"
-                          ? Colors.white
-                          : const Color(0xFF00205B),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    "Masculino",
-                    style: GoogleFonts.montserrat(
-                      fontSize: 20,
-                      color: selectedGender == "Masculino"
-                          ? const Color(0xFF00205B)
-                          : Colors.grey,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+            _buildGender(
+              icon: Icons.male,
+              label: "Masculino",
             ),
 
             const SizedBox(height: 40),
 
-            GestureDetector(
-              onTap: () {
-                setState(() => selectedGender = "Femenino");
-              },
-              child: Column(
-                children: [
-
-                  const SizedBox(height: 15),
-                  Text(
-                    "Femenino",
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      color: selectedGender == "Femenino"
-                          ? const Color(0xFF00205B)
-                          : Colors.grey,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+            _buildGender(
+              icon: Icons.female,
+              label: "Femenino",
             ),
 
             const Spacer(),
@@ -130,21 +75,21 @@ class _GeneroScreenState extends State<GeneroScreen> {
               child: ElevatedButton(
                 onPressed: selectedGender == null
                     ? null
-                    : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RolScreen(),
-                          ),
-                        );
-                      },
+                    : () async {
+                  await _guardarGenero();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00205B),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  elevation: 5,
                 ),
                 child: Text(
                   "Continuar",
@@ -159,6 +104,41 @@ class _GeneroScreenState extends State<GeneroScreen> {
             const SizedBox(height: 30),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGender({required IconData icon, required String label}) {
+    final selected = selectedGender == label;
+
+    return GestureDetector(
+      onTap: () => setState(() => selectedGender = label),
+      child: Column(
+        children: [
+          Container(
+            width: 190,
+            height: 190,
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFF00205B) : Colors.white,
+              border: Border.all(color: const Color(0xFF00205B), width: 3),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 90,
+              color: selected ? Colors.white : const Color(0xFF00205B),
+            ),
+          ),
+          const SizedBox(height: 15),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              color: selected ? const Color(0xFF00205B) : Colors.grey,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

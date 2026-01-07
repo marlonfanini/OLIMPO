@@ -1,8 +1,8 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import 'package:olimpo/genero_screen.dart';
 import 'package:olimpo/login_screen.dart';
-import 'main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -14,6 +14,27 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentPage = 0;
+
+  Future<void> _goAfterOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    final gender = prefs.getString("gender");
+
+    if (!mounted) return;
+
+    // ✅ si no hay género aún → Género
+    if (gender == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const GeneroScreen()),
+      );
+    } else {
+      // ✅ si ya existe (por si acaso) → Login
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
 
   final List<Map<String, dynamic>> _slides = [
     {
@@ -36,16 +57,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     },
   ];
 
-  void _nextPage() {
+  /// Guarda que el onboarding ya se completó
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_completed', true);
+  }
+
+  void _nextPage() async {
     if (_currentPage < _slides.length - 1) {
-      _controller.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeIn);
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MyHomePage(title: 'Página Principal')),
+      _controller.nextPage(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeIn,
       );
+    } else {
+      await _completeOnboarding();
+      await _goAfterOnboarding();
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -65,10 +94,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   SizedBox.expand(
                     child: Image.asset(
-                      _slides[index]["image"]!,
+                      _slides[index]["image"],
                       fit: BoxFit.cover,
                     ),
                   ),
+
+                  // Overlay oscura
                   Container(color: Colors.black.withOpacity(0.4)),
 
                   Align(
@@ -93,7 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                           const SizedBox(height: 15),
                           Text(
-                            _slides[index]["title"]!,
+                            _slides[index]["title"],
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Colors.white,
@@ -103,6 +134,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                           const SizedBox(height: 20),
 
+                          // Puntos indicadores
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: List.generate(
@@ -112,7 +144,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 width: dotIndex == _currentPage ? 20 : 10,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: dotIndex == _currentPage ? Colors.redAccent : Colors.white,
+                                  color: dotIndex == _currentPage
+                                      ? Colors.redAccent
+                                      : Colors.white,
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
@@ -121,48 +155,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                           const SizedBox(height: 30),
 
-                          if (index == _slides.length - 1)
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF00205B),
-                                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              ),
-                              child: const Text(
-                                "Comenzar",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          // Botón inferior dinámico
+                          ElevatedButton(
+                            onPressed: _nextPage,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF00205B),
+                              padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30)),
+                            ),
+                            child: Text(
+                              _slides[index]["button"],
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-
-
+                  )
                 ],
               );
             },
           ),
 
+          // Botón OMITE
           Positioned(
             top: 40,
             right: 20,
             child: TextButton(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
+              onPressed: () async {
+                await _completeOnboarding();
+                await _goAfterOnboarding();
               },
               child: const Text(
                 "Omitir >",
@@ -170,8 +197,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-
-
         ],
       ),
     );
