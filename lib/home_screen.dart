@@ -23,6 +23,45 @@ class _HomeScreenState extends State<HomeScreen> {
   int selectedIndex = 0;
   List<dynamic> torneos = [];
   bool loadingTorneos = true;
+  String userName = "—";
+  bool loadingUser = true;
+
+  Future<void> _loadUserName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt("userId");
+      final token = prefs.getString("token");
+
+      if (userId == null || token == null) {
+        setState(() {
+          loadingUser = false;
+          userName = "—";
+        });
+        return;
+      }
+
+      final url = Uri.parse("$baseUrl/api/User/GetUserEdit/$userId");
+
+      final response = await http.get(
+        url,
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final data = json["data"];
+
+        setState(() {
+          userName = (data["name"] ?? "—").toString();
+          loadingUser = false;
+        });
+      } else {
+        setState(() => loadingUser = false);
+      }
+    } catch (_) {
+      setState(() => loadingUser = false);
+    }
+  }
 
   final List<String> torneoImages = [
     "assets/taekwondo.png",
@@ -129,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadUserName();
     _loadTorneos();
     _loadInstalaciones();
     _loadNoticias();
@@ -163,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Hola, Melany",
+                            "Hola, ${loadingUser ? "..." : userName}",
                             style: GoogleFonts.poppins(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,

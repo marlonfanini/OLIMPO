@@ -120,22 +120,26 @@ class _ReservarInstalacionScreenState
         throw Exception("Sesión no válida");
       }
 
-      final DateTime fechaHora = DateFormat("yyyy-MM-dd h:mm a").parse(
+      // 1) Fecha/hora de inicio seleccionada
+      final DateTime start = DateFormat("yyyy-MM-dd h:mm a").parse(
         "${DateFormat('yyyy-MM-dd').format(selectedDay)} $selectedHour",
       );
 
-      final String fechaIso =
-      DateFormat("yyyy-MM-ddTHH:mm:00").format(fechaHora);
+      // 2) Fecha/hora de fin (50 minutos)
+      final DateTime end = start.add(const Duration(minutes: 50));
 
-      final url = Uri.parse(
-        "$baseUrl/api/Reservation/AddReservation",
-      );
+      // 3) Formato ISO (más confiable)
+      final String startIso = start.toIso8601String();
+      final String endIso = end.toIso8601String();
+
+      final url = Uri.parse("$baseUrl/api/Reservation/AddReservation");
 
       final body = {
         "id": 0,
         "userId": userId,
         "facilityId": widget.facilityId,
-        "reservedDates": fechaIso,
+        "reservedDates": startIso,
+        "endReservedDate": endIso,
         "estatusID": 1,
       };
 
@@ -143,7 +147,7 @@ class _ReservarInstalacionScreenState
         url,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer $token", // 👈 JWT
+          "Authorization": "Bearer $token",
         },
         body: jsonEncode(body),
       );
@@ -160,9 +164,7 @@ class _ReservarInstalacionScreenState
                   Navigator.pop(context);
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => CalendarioReservasScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => CalendarioReservasScreen()),
                   );
                 },
                 child: const Text("OK"),
@@ -170,6 +172,8 @@ class _ReservarInstalacionScreenState
             ],
           ),
         );
+      } else {
+        _mostrarMensaje("No se pudo reservar. Código: ${response.statusCode}");
       }
     } catch (e) {
       _mostrarMensaje("Error enviando la reserva");

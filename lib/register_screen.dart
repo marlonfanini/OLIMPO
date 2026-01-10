@@ -27,6 +27,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  int _personTypeId = 1;
 
   static const String _baseUrl = "https://olimpo-production.up.railway.app";
   static const String _registerEndpoint = "/api/Auth/Register";
@@ -120,6 +121,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
           "password": password,
           "roleId": 1,
           "estatusID": 1,
+          "personTypeID": _personTypeId,
         }),
       );
 
@@ -213,6 +215,32 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
                         _buildLabel("Correo electrónico"),
                         const SizedBox(height: 8),
                         _buildInputField(_emailController, "correo@ejemplo.com", TextInputType.emailAddress),
+
+                        const SizedBox(height: 20),
+                        _buildLabel("Tipo de usuario"),
+                        const SizedBox(height: 8),
+
+                        DropdownButtonFormField<int>(
+                          value: _personTypeId,
+                          dropdownColor: Colors.white,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text("Atleta")),
+                            DropdownMenuItem(value: 2, child: Text("Entrenador")),
+                          ],
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() => _personTypeId = v);
+                          },
+                        ),
 
                         const SizedBox(height: 20),
                         _buildLabel("Contraseña"),

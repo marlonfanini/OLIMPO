@@ -178,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.emailAddress,
                           style: GoogleFonts.poppins(),
                           decoration: InputDecoration(
-                            hintText: "0000000",
+                            hintText: "example@gmail.com",
                             hintStyle: GoogleFonts.poppins(color: Colors.grey),
                             filled: true,
                             fillColor: Colors.white,

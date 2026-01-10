@@ -21,12 +21,20 @@ class _CalendarioReservasScreenState extends State<CalendarioReservasScreen>
   List<dynamic> reservas = [];
   bool loading = true;
   bool updating = false;
+  int? currentUserId;
 
   @override
   void initState() {
     super.initState();
-    cargarReservas();
+    _init();
   }
+
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    currentUserId = prefs.getInt("userId"); // ✅ viene del login
+    await cargarReservas();
+  }
+
 
   Future<Map<String, dynamic>?> obtenerFacility(int id) async {
     final prefs = await SharedPreferences.getInstance();
@@ -109,9 +117,9 @@ class _CalendarioReservasScreenState extends State<CalendarioReservasScreen>
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
 
-    final url = Uri.parse(
-      "$baseUrl/api/Reservation/GetAllReservationsFront",
-    );
+    final uid = currentUserId ?? prefs.getInt("userId");
+
+    final url = Uri.parse("$baseUrl/api/Reservation/GetAllReservationsFront");
 
     try {
       final response = await http.get(
@@ -124,7 +132,13 @@ class _CalendarioReservasScreenState extends State<CalendarioReservasScreen>
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        reservas = json["data"] ?? [];
+        final List data = (json["data"] ?? []) as List;
+
+        if (uid != null) {
+          reservas = data.where((r) => r["userId"] == uid).toList();
+        } else {
+          reservas = [];
+        }
       } else {
         reservas = [];
       }
@@ -338,7 +352,6 @@ class _CalendarioReservasScreenState extends State<CalendarioReservasScreen>
 
                 const SizedBox(height: 10),
 
-                // ----------------- HORARIOS -----------------
                 Wrap(
                   spacing: 10,
                   runSpacing: 12,
@@ -385,7 +398,6 @@ class _CalendarioReservasScreenState extends State<CalendarioReservasScreen>
 
                 const Spacer(),
 
-                // ----------------- GUARDAR -----------------
                 ElevatedButton(
                   onPressed: selectedHour == null
                       ? null
@@ -429,17 +441,23 @@ class _CalendarioReservasScreenState extends State<CalendarioReservasScreen>
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
 
-    final url = Uri.parse(
-      "$baseUrl/api/Reservation/UpdateReservation",
-    );
+    final url = Uri.parse("$baseUrl/api/Reservation/UpdateReservation");
 
-    final String fechaIso = DateFormat("yyyy-MM-ddTHH:mm:00").format(nuevaFecha);
+    // Inicio
+    final DateTime start = nuevaFecha;
+
+    // Fin (50 minutos)
+    final DateTime end = start.add(const Duration(minutes: 50));
+
+    final String startIso = DateFormat("yyyy-MM-ddTHH:mm:00").format(start);
+    final String endIso   = DateFormat("yyyy-MM-ddTHH:mm:00").format(end);
 
     final body = {
-      "id": 0,
+      "id": 0, // como tú lo quieres
       "userId": reserva["userId"],
       "facilityId": reserva["facilityId"],
-      "reservedDates": fechaIso,
+      "reservedDates": startIso,
+      "endReservedDate": endIso, // ✅ agregado
       "estatusID": 1,
     };
 
@@ -456,9 +474,12 @@ class _CalendarioReservasScreenState extends State<CalendarioReservasScreen>
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       _mostrarMensaje("Reservación actualizada.");
-      cargarReservas();
+      await cargarReservas();
     } else {
-      _mostrarMensaje("Error: ${response.body}");
+      // para ver el error real si vuelve a fallar
+      debugPrint("UPDATE STATUS: ${response.statusCode}");
+      debugPrint("UPDATE BODY: ${response.body}");
+      _mostrarMensaje("Error (${response.statusCode}): ${response.body}");
     }
   }
 

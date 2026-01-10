@@ -18,6 +18,8 @@ class PerfilScreen extends StatefulWidget {
 const String baseUrl = "https://olimpo-production.up.railway.app";
 
 class _PerfilScreenState extends State<PerfilScreen> {
+  String personType = "—";
+
   bool loading = true;
   String gender = "—";
 
@@ -144,6 +146,18 @@ class _PerfilScreenState extends State<PerfilScreen> {
           name = data["name"] ?? "";
           email = data["email"] ?? "";
           gender = storedGender ?? "—";
+          final pt = data["personType"];
+
+          String ptText = "—";
+          if (pt is List && pt.isNotEmpty) {
+            final first = pt.first;
+            if (first is Map && first["descripcion"] != null) {
+              ptText = "${first["descripcion"]}";
+            }
+          }
+
+          personType = ptText;
+
           loading = false;
         });
       } else {
@@ -297,7 +311,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                             ),
                           ),
                           Text(
-                            "Atleta",
+                            personType,
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: Colors.white,
